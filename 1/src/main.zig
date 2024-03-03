@@ -56,6 +56,26 @@ const CircularList = struct {
             if (node.next == self.head) break;
         }
     }
+
+    pub fn init(self: *Self, allocator: std.mem.Allocator, n: u7) void {
+        var i = n;
+        while (i > 0) {
+            var node = allocator.create(CircularList.Node) catch @panic("out of memory");
+            node.*.data = i;
+            self.prepend(node);
+            i -= 1;
+        }
+    }
+
+    pub fn deinit(self: *Self, allocator: std.mem.Allocator) void {
+        var it = self.head;
+        var i: usize = 0;
+        while (it) |node| : (i += 1) {
+            if (i == self.lenght) break;
+            it = node.next;
+            allocator.destroy(node);
+        }
+    }
 };
 
 pub fn main() !void {
@@ -112,4 +132,14 @@ test "list to string" {
     defer allocator.free(string);
     try testing.expectEqualStrings("   1   2   3", string);
     try testing.expect(list.lenght == 3);
+}
+
+test "filling the list" {
+    const allocator = testing.allocator;
+    var list = CircularList{};
+    list.init(allocator, 3);
+    defer list.deinit(allocator);
+    const string = try std.fmt.allocPrint(allocator, "{}", .{list});
+    defer allocator.free(string);
+    try testing.expectEqualStrings("   1   2   3", string);
 }
