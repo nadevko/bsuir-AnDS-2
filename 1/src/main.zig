@@ -52,7 +52,7 @@ const CircularList = struct {
 
         var current = self.head;
         while (current) |node| : (current = node.next) {
-            try writer.print(" {d: >3}", .{node.data});
+            try writer.print(" {d: >2}", .{node.data});
             if (node.next == self.head) break;
         }
     }
@@ -80,9 +80,14 @@ const CircularList = struct {
 
 pub fn main() !void {
     const stdout = std.io.getStdOut().writer();
-    var i: u7 = 0;
-    while (i < N) : (i += 1) {
-        try stdout.print("{d: >3} | {s}\n", .{ i, "5454" });
+    const allocator = std.heap.page_allocator;
+    var i: u7 = 1;
+    while (i <= N) : (i += 1) {
+        var game = CircularList{};
+        game.init(allocator, i);
+        defer game.deinit();
+        var result = CircularList{};
+        try stdout.print("{d: >2} |{s}\n", .{ i, result });
     }
 }
 
@@ -130,7 +135,7 @@ test "list to string" {
     list.prepend(&node1);
     const string = try std.fmt.allocPrint(allocator, "{}", .{list});
     defer allocator.free(string);
-    try testing.expectEqualStrings("   1   2   3", string);
+    try testing.expectEqualStrings("  1  2  3", string);
     try testing.expect(list.lenght == 3);
 }
 
@@ -141,5 +146,5 @@ test "filling the list" {
     defer list.deinit(allocator);
     const string = try std.fmt.allocPrint(allocator, "{}", .{list});
     defer allocator.free(string);
-    try testing.expectEqualStrings("   1   2   3", string);
+    try testing.expectEqualStrings("  1  2  3", string);
 }
