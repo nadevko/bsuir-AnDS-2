@@ -4,6 +4,9 @@ const testing = std.testing;
 /// number of rounds
 const N = 64;
 
+/// every k player is winner
+const k = 3;
+
 const CircularList = struct {
     const Self = @This();
 
@@ -29,11 +32,8 @@ const CircularList = struct {
     }
 
     pub fn remove(self: *Self, node: *Node) void {
-        if (self.head == node) {
-            self.head = node.next;
-            self.tail.?.next = self.head;
-            return;
-        }
+        self.head = if (node == self.head) self.head.?.next else self.head;
+        self.tail = if (node == self.tail) self.tail.?.next else self.tail;
         var current = self.head.?;
         while (current.next != node)
             current = current.next.?;
@@ -85,8 +85,18 @@ pub fn main() !void {
     while (i <= N) : (i += 1) {
         var game = CircularList{};
         game.init(allocator, i);
-        defer game.deinit();
         var result = CircularList{};
+        defer result.deinit(allocator);
+        var current = game.head.?;
+        while (game.lenght != 0) {
+            var j: usize = 1;
+            while (j < k) : (j += 1)
+                current = current.next.?;
+            var winner = current;
+            game.remove(winner);
+            current = winner.next.?;
+            result.append(winner);
+        }
         try stdout.print("{d: >2} |{s}\n", .{ i, result });
     }
 }
