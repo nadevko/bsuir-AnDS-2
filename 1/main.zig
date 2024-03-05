@@ -158,3 +158,24 @@ test "filling the list" {
     defer allocator.free(string);
     try testing.expectEqualStrings("  1  2  3", string);
 }
+
+test "single-round play" {
+    const allocator = testing.allocator;
+    var game = CircularList{};
+    game.init(allocator, N);
+    var result = CircularList{};
+    defer result.deinit(allocator);
+    var current = game.head.?;
+    while (game.lenght != 0) {
+        var j: usize = 1;
+        while (j < k) : (j += 1)
+            current = current.next.?;
+        var winner = current;
+        game.remove(winner);
+        current = winner.next.?;
+        result.append(winner);
+    }
+    const string = try std.fmt.allocPrint(allocator, "{d: >2} |{s}\n", .{ N, result });
+    defer allocator.free(string);
+    try testing.expectEqualStrings("64 |  3  6  9 12 15 18 21 24 27 30 33 36 39 42 45 48 51 54 57 60 63  2  7 11 16 20 25 29 34 38 43 47 52 56 61  1  8 14 22 28 35 41 49 55 62  5 17 26 37 46 58  4 19 32 50 64 23 44 10 40 13 59 31 53\n", string);
+}

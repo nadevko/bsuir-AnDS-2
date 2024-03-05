@@ -2,10 +2,12 @@
 Nadeŭka <nadevko@riseup.net>
 v1.0, 2024-03-02
 
-Solutions of labs from https://libeldoc.bsuir.by/bitstream/123456789/799/2/Serebryanaya_strukt.pdf[book "СТРУКТУРЫ И АЛГОРИТМЫ ОБРАБОТКИ ДАННЫХ" (Л. В. Серебряная, И. М. Марина)]
+Solutions of labs from book
+https://libeldoc.bsuir.by/bitstream/123456789/799/2/Serebryanaya_strukt.pdf[
+"СТРУКТУРЫ И АЛГОРИТМЫ ОБРАБОТКИ ДАННЫХ" (Л. В. Серебряная, И. М. Марина)]
 
 * link:1/README.adoc[1.2]
-* link:2/README.adoc[2]
+* link:2/README.adoc[1.4]
 * link:3/README.adoc[3]
 * link:4/README.adoc[4]
 * link:5/README.adoc[5]
