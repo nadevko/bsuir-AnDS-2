@@ -1,10 +1,10 @@
 const std = @import("std");
 const testing = std.testing;
 
-const SinglyList = struct {
+pub const List = struct {
     const Self = @This();
 
-    pub const Node = struct { data: u7, next: ?*Node = null };
+    pub const Node = struct { data: u24, next: ?*Node = null };
     head: ?*Node = null,
     lenght: usize = 0,
 
@@ -43,9 +43,9 @@ const SinglyList = struct {
 };
 
 test "prepend to list" {
-    var list = SinglyList{};
-    var node1 = SinglyList.Node{ .data = 1 };
-    var node2 = SinglyList.Node{ .data = 2 };
+    var list = List{};
+    var node1 = List.Node{ .data = 1 };
+    var node2 = List.Node{ .data = 2 };
     list.prepend(&node1);
     list.prepend(&node2);
     try testing.expect(list.head.?.data == 2);
@@ -54,10 +54,10 @@ test "prepend to list" {
 
 test "list to string" {
     const allocator = testing.allocator;
-    var list = SinglyList{};
-    var node3 = SinglyList.Node{ .data = 3 };
-    var node2 = SinglyList.Node{ .data = 2 };
-    var node1 = SinglyList.Node{ .data = 1 };
+    var list = List{};
+    var node3 = List.Node{ .data = 3 };
+    var node2 = List.Node{ .data = 2 };
+    var node1 = List.Node{ .data = 1 };
     list.prepend(&node3);
     list.prepend(&node2);
     list.prepend(&node1);

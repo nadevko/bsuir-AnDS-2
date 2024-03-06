@@ -1,10 +1,12 @@
 const std = @import("std");
 const testing = std.testing;
 
-const DoublyList = struct {
+pub const List = struct {
     const Self = @This();
 
-    pub const Node = struct { data: u7, prev: ?*Node = null, next: ?*Node = null };
+    pub const ReadError = error{ LessThan, InBetween, GreaterThan };
+
+    pub const Node = struct { data: u24, prev: ?*Node = null, next: ?*Node = null };
     head: ?*Node = null,
     tail: ?*Node = null,
     lenght: usize = 0,
@@ -14,14 +16,6 @@ const DoublyList = struct {
         node.prev = if (before == null) null else before.?.prev;
         (if (node.next != null) node.next.?.prev else self.tail) = node;
         (if (node.prev != null) node.prev.?.next else self.head) = node;
-        self.lenght += 1;
-    }
-
-    pub fn append(self: *Self, node: *Node, after: ?*Node) void {
-        node.prev = after orelse self.tail;
-        node.next = if (after == null) null else after.?.next;
-        (if (node.prev != null) node.prev.?.next else self.head) = node;
-        (if (node.next != null) node.next.?.prev else self.tail) = node;
         self.lenght += 1;
     }
 
@@ -37,8 +31,32 @@ const DoublyList = struct {
         var i: usize = 0;
         var current = self.head;
         while (i < self.lenght) : (i += 1) {
-            try writer.print(" {d: >2}", .{current.?.data});
+            try writer.print(" {d: >7}", .{current.?.data});
             current = current.?.next;
+        }
+    }
+
+    fn read(allocator: std.mem.Allocator) ReadError!*Node {
+        const stdin = std.io.getStdIn().reader();
+        var node = allocator.create(List.Node) catch @panic("out of memory");
+        var buffer: [8]u8 = undefined;
+        node.data = if (stdin.readUntilDelimiterOrEof(buffer[0..], '\n') catch @panic("error, idk")) |input|
+            std.fmt.parseInt(u24, input, 10) catch @panic("error, idk")
+        else
+            @as(u24, 0);
+        return if (node.data < 100) ReadError.LessThan else if (node.data > 999 and node.data < 1_000_000) ReadError.InBetween else if (node.data > 9_999_999) ReadError.GreaterThan else node;
+    }
+
+    pub fn init(self: *Self, allocator: std.mem.Allocator, n: usize) void {
+        const stdout = std.io.getStdOut().writer();
+        stdout.print("Введите номера на отдельных строках:\n", .{}) catch @panic("error, idk");
+        var i: usize = n;
+        while (i > 0) : (i -= 1) {
+            self.prepend(read(allocator) catch |err| switch (err) {
+                ReadError.LessThan => @panic("Номер спецслужбы должен состоять из 3 цифр"),
+                ReadError.InBetween => @panic("Номера спецслужбы состоят из 3 цифр, а абонентов из 7"),
+                ReadError.GreaterThan => @panic("Номер абонента должен состоять из 7 цифр"),
+            }, null);
         }
     }
 
@@ -54,36 +72,25 @@ const DoublyList = struct {
 };
 
 test "prepend to list" {
-    var list = DoublyList{};
-    var node1 = DoublyList.Node{ .data = 1 };
-    var node2 = DoublyList.Node{ .data = 2 };
+    var list = List{};
+    var node1 = List.Node{ .data = 1 };
+    var node2 = List.Node{ .data = 2 };
     list.prepend(&node1, null);
     list.prepend(&node2, &node1);
     try testing.expect(list.head.?.data == 2);
     try testing.expect(list.lenght == 2);
 }
 
-test "append to list" {
-    var list = DoublyList{};
-    var node1 = DoublyList.Node{ .data = 1 };
-    var node2 = DoublyList.Node{ .data = 2 };
-    list.append(&node1, null);
-    list.append(&node2, &node1);
-    try testing.expect(list.head.?.data == 1);
-    try testing.expect(list.lenght == 2);
-}
-
 test "list to string" {
     const allocator = testing.allocator;
-    var list = DoublyList{};
-    var node3 = DoublyList.Node{ .data = 3 };
-    var node2 = DoublyList.Node{ .data = 2 };
-    var node1 = DoublyList.Node{ .data = 1 };
+    var list = List{};
+    var node3 = List.Node{ .data = 3 };
+    var node2 = List.Node{ .data = 2 };
+    var node1 = List.Node{ .data = 1 };
     list.prepend(&node2, null);
     list.prepend(&node1, &node2);
     list.append(&node3, &node2);
     const string = try std.fmt.allocPrint(allocator, "{}", .{list});
     defer allocator.free(string);
-    try testing.expectEqualStrings("  1  2  3", string);
-    try testing.expect(list.lenght == 3);
+    try testing.expectEqualStrings("       1       2       3", string);
 }
