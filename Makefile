@@ -29,6 +29,9 @@ $(DESTDIR)/bin/$(1): $(1)/main.zig
 
 run-$(1):
 	zig build run -p $(DESTDIR) -Dlab=$(1)
+
+test-$(1):
+	zig build test -p $(DESTDIR) -Dlab=$(1)
 endef
 
 $(foreach lab,$(LABS),$(eval $(call mk-lab,$(lab))))
