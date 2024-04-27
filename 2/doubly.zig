@@ -47,9 +47,9 @@ pub const List = struct {
         return if (node.data < 100) ReadError.LessThan else if (node.data > 999 and node.data < 1_000_000) ReadError.InBetween else if (node.data > 9_999_999) ReadError.GreaterThan else node;
     }
 
-    pub fn init(self: *Self, allocator: std.mem.Allocator, n: usize) void {
+    pub fn init(self: *Self, allocator: std.mem.Allocator, n: usize) !void {
         const stdout = std.io.getStdOut().writer();
-        stdout.print("Введите номера на отдельных строках:\n", .{}) catch @panic("error, idk");
+        try stdout.print("Введите номера на отдельных строках:\n", .{});
         var i: usize = n;
         while (i > 0) : (i -= 1) {
             self.prepend(read(allocator) catch |err| switch (err) {

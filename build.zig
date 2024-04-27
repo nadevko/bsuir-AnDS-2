@@ -4,8 +4,8 @@ const completed = 1;
 
 pub fn concat(allocator: std.mem.Allocator, str1: []const u8, str2: []const u8) []const u8 {
     var result = allocator.alloc(u8, str1.len + str2.len) catch @panic("out of memory");
-    std.mem.copy(u8, result[0..], str1);
-    std.mem.copy(u8, result[str1.len..], str2);
+    std.mem.copyForwards(u8, result[0..], str1);
+    std.mem.copyForwards(u8, result[str1.len..], str2);
     return result;
 }
 

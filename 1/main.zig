@@ -57,10 +57,10 @@ const CircularList = struct {
         }
     }
 
-    pub fn init(self: *Self, allocator: std.mem.Allocator, n: u7) void {
+    pub fn init(self: *Self, allocator: std.mem.Allocator, n: u7) !void {
         var i = n;
         while (i > 0) {
-            var node = allocator.create(CircularList.Node) catch @panic("out of memory");
+            const node = try allocator.create(CircularList.Node);
             node.*.data = i;
             self.prepend(node);
             i -= 1;
@@ -84,7 +84,7 @@ pub fn main() !void {
     var i: u7 = 1;
     while (i <= N) : (i += 1) {
         var game = CircularList{};
-        game.init(allocator, i);
+        try game.init(allocator, i);
         var result = CircularList{};
         defer result.deinit(allocator);
         var current = game.head.?;
@@ -92,7 +92,7 @@ pub fn main() !void {
             var j: usize = 1;
             while (j < k) : (j += 1)
                 current = current.next.?;
-            var winner = current;
+            const winner = current;
             game.remove(winner);
             current = winner.next.?;
             result.append(winner);
@@ -170,7 +170,7 @@ test "single-round play" {
         var j: usize = 1;
         while (j < k) : (j += 1)
             current = current.next.?;
-        var winner = current;
+        const winner = current;
         game.remove(winner);
         current = winner.next.?;
         result.append(winner);
