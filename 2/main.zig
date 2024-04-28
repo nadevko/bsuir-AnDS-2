@@ -12,7 +12,7 @@ pub fn main() !void {
     try stdout.print("Введите количество номеров: ", .{});
     var buffer: [10]u8 = undefined;
     const n: usize = if (try stdin.readUntilDelimiterOrEof(buffer[0..], '\n')) |input| try std.fmt.parseInt(usize, input, 10) else @as(usize, 0);
-    doubly_list.init(allocator, n);
+    try doubly_list.init(allocator, n);
     defer doubly_list.deinit(allocator);
 
     var singly_list = singly.List{};
