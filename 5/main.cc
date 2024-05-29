@@ -1,235 +1,315 @@
-#include <cmath>
+#include <algorithm>
 #include <functional>
-#include <iomanip>
 #include <iostream>
-#include <stdexcept>
+#include <limits>
 #include <string>
+#include <unordered_map>
+#include <vector>
 
-using namespace std;
+struct Term {
+  std::string name;
+  std::string description;
+  int page;
+  int line;
+  std::string parent;
+  std::vector<std::string> subs;
 
-const size_t LIMIT = 2000;
-
-template <typename K, typename T, size_t LIMIT = LIMIT> class HashMap {
-public:
-  struct Node {
-    Node() {}
-    Node(K key, T value) : key(key), value(value) {}
-    K key;
-    T value;
-    Node *next = nullptr;
-
-    size_t count() { return (next == nullptr) ? 1 : 1 + next->count(); }
-
-    void insert(Node &node) {
-      if (key == node.key)
-        value = node.value;
-      else if (next == nullptr)
-        next = &node;
-      else
-        next->insert(node);
-    }
-
-    void update(function<T(T &)> lambda) { value = lambda(&value); }
-
-    Node *erase(K _key) {
-      if (key == _key)
-        return next;
-      else if (next != nullptr)
-        next = next->erase(_key);
-      return this;
-    }
-
-    T *find(K _key) {
-      return (key == _key)       ? &value
-             : (next == nullptr) ? nullptr
-                                 : next->find(_key);
-    }
-  };
-
-  struct Iterator {
-    using difference_type = ptrdiff_t;
-    using element_type = Node *;
-    using pointer = element_type *;
-    using reference = element_type &;
-
-  private:
-    pointer ptr, start, stop;
-    static_assert(sentinel_for<decltype(stop), decltype(ptr)>);
-
-  public:
-    Iterator() {}
-    Iterator(pointer p, pointer s) : ptr(p), start(p), stop(s) {}
-    reference operator*() const { return *ptr; }
-
-    Iterator &operator++() {
-      ++ptr;
-      return *this;
-    }
-    Iterator operator++(int) {
-      auto temp = *this;
-      ++*this;
-      return temp;
-    }
-
-    auto operator<=>(const Iterator &rhs) const = default;
-    auto begin() { return start; }
-    auto end() { return stop; }
-  };
-  auto begin() { return iter.begin(); }
-  auto end() { return iter.end(); }
-
-  void insert(Node &node) {
-    auto key = hash<K>{}(node.key);
-    if (memory[key] == nullptr)
-      memory[key] = &node;
-    else
-      memory[key]->insert(node);
-  }
-  void insert(K key, T value) { insert(*new Node{key, value}); }
-
-  void erase(K key) {
-    auto index = hash<K>{}(key);
-    if (memory[index] == nullptr)
-      return;
-    memory[index] = memory[index]->erase(key);
-  }
-
-  T *find(K key) const {
-    auto index = hash<K>{}(key);
-    return (memory[index] == nullptr) ? nullptr : memory[index]->find(key);
-  }
-  T *operator[](K key) const { return find(key); }
-
-private:
-  Node *memory[LIMIT] = {};
-  static_assert(forward_iterator<Iterator>);
-  Iterator iter = Iterator(memory, std::end(memory));
+  Term(std::string name, std::string desc, int page, int line,
+       std::string parent = "")
+      : name(std::move(name)), description(std::move(desc)), page(page),
+        line(line), parent(std::move(parent)) {}
 };
 
-template <> struct std::hash<string> {
-  size_t operator()(const string &key) const noexcept {
-    size_t result = 0;
-    for (size_t i = 1; i <= key.length(); i++)
-      result += pow(key[i - 1], 2) / 3 / i;
-    return static_cast<size_t>(pow(result, 2)) / 100 % LIMIT;
+Term createNewTerm(const std::string &termName = "") {
+  std::string name, description, parentName;
+  int page, line;
+
+  if (termName.empty()) {
+    std::cout << "Введите новое название термина: ";
+    std::cin >> name;
+    std::cin.ignore(); // игнорируем остаточный символ новой строки
+  } else {
+    name = termName;
   }
-};
 
-struct term {
-  string title;
-  string description;
-  string parent;
-  uint page;
-  uint line;
-};
+  std::cout << "Введите новое описание термина (введите пустую строку для "
+               "завершения): ";
+  std::string str;
+  while (std::getline(std::cin, str) && !str.empty())
+    description += str + "\n";
 
-void helpMe() {
-  cout << "  .    Вывести термин\n"
-          "  :    Вывести термины\n"
-          "  +    Добавить/изменить термин\n"
-          "  -    Удалить термин\n"
-          "  а    Отсортировать по алфавиту\n"
-          "  н    Отсортировать по номерам страниц\n"
-          "  т    Найти термин по подтермину\n"
-          "  п    Найти подтермины по термину\n"
-          "  _    Выйти\n"
-          "  ?    Вывести это сообщение помощи\n";
+  std::cout << "Введите новый номер страницы: ";
+  std::cin >> page;
+  std::cin.ignore(); // игнорируем остаточный символ новой строки
+
+  std::cout << "Введите новый номер строки: ";
+  std::cin >> line;
+  std::cin.ignore(); // игнорируем остаточный символ новой строки
+
+  std::cout << "Введите новый родительский термин (если есть, иначе оставьте "
+               "пустым): ";
+  std::getline(std::cin, parentName);
+
+  return Term(name, description, page, line, parentName);
 }
 
-template <typename T> T readstoi(string prompt = "") {
-  string input;
-  try {
-    cout << prompt;
-    getline(cin, input);
-    return static_cast<T>(stoi(input));
-  } catch (const invalid_argument &) {
-    cout << "Попробуйте снова\n";
-    return readstoi<T>(prompt);
+class TermIndex {
+private:
+  std::unordered_map<std::string, Term> hashmap;
+
+  void print(std::ostream &out, const Term &parent,
+             std::function<bool(const Term &, const Term &)> sorter,
+             int indent = 0) const {
+    std::string indentation(indent, ' ');
+    out << indentation << parent.name << " (" << parent.page << ":"
+        << parent.line << ")\n";
+
+    std::vector<Term> sortedSubs;
+    for (const auto &subName : parent.subs) {
+      const auto &iter = hashmap.find(subName);
+      if (iter != hashmap.end())
+        sortedSubs.push_back(iter->second);
+    }
+
+    std::sort(sortedSubs.begin(), sortedSubs.end(), sorter);
+
+    for (const Term &term : sortedSubs)
+      print(out, term, sorter, indent + 4);
+  }
+
+public:
+  enum class SortMode { Alphabet, Page };
+
+  void push(const Term &term) {
+    hashmap.emplace(term.name, term);
+    if (!term.parent.empty()) {
+      auto iter = hashmap.find(term.parent);
+      if (iter != hashmap.end())
+        iter->second.subs.push_back(term.name);
+    }
+  }
+
+  void pop(const std::string &termName) {
+    hashmap.erase(termName);
+    for (auto &termPair : hashmap) {
+      auto &subTerms = termPair.second.subs;
+      subTerms.erase(std::remove(subTerms.begin(), subTerms.end(), termName),
+                     subTerms.end());
+    }
+  }
+
+  void print(std::ostream &out, SortMode type) const {
+    std::function<bool(const Term &, const Term &)> sorter;
+
+    switch (type) {
+    case SortMode::Alphabet:
+      sorter = [](const Term &a, const Term &b) { return a.name < b.name; };
+      break;
+    case SortMode::Page:
+      sorter = [](const Term &a, const Term &b) {
+        return a.page == b.page ? a.line < b.line : a.page < b.page;
+      };
+      break;
+    default:
+      sorter = [](const Term &a, const Term &b) { return a.name < b.name; };
+      break;
+    }
+
+    std::vector<Term> topLevelTerms;
+    for (const auto &termPair : hashmap) {
+      if (termPair.second.parent.empty()) {
+        topLevelTerms.push_back(termPair.second);
+      }
+    }
+
+    std::sort(topLevelTerms.begin(), topLevelTerms.end(), sorter);
+
+    for (const Term &term : topLevelTerms) {
+      print(out, term, sorter);
+    }
+  }
+
+  void updateTerm(const std::string &termName) {
+    auto oldTermIter = hashmap.find(termName);
+    if (oldTermIter == hashmap.end())
+      throw std::invalid_argument("Термин с таким именем не найден.");
+    auto oldTerm = oldTermIter->second;
+    auto newTerm = createNewTerm(termName);
+    newTerm.subs = oldTerm.subs;
+    hashmap.erase(termName);
+    hashmap.emplace(termName, newTerm);
+  }
+
+  void printSingleTerm(std::ostream &out, const std::string &termName) const {
+    auto iter = hashmap.find(termName);
+    if (iter != hashmap.end()) {
+      const Term &term = iter->second;
+      if (!term.parent.empty())
+        out << term.parent << " / ";
+      out << term.name << " (" << term.page << ":" << term.line << ")\n"
+          << term.description << "\nПодтермины: ";
+      if (term.subs.empty())
+        out << "отсутствуют";
+      else
+        for (const std::string &subTermName : term.subs)
+          out << subTermName << ", ";
+      out << "\n";
+    } else
+      out << "Термин с именем '" << termName << "' не найден.\n";
+  }
+
+  Term findTermBySubTerm(const std::string &subTermName) const {
+    for (const auto &termPair : hashmap) {
+      const auto &subTerms = termPair.second.subs;
+      if (std::find(subTerms.begin(), subTerms.end(), subTermName) !=
+          subTerms.end())
+        return termPair.second;
+    }
+    throw std::invalid_argument("Термин с таким подтермином не найден.");
+  }
+
+  std::vector<Term> findSubTermsByTerm(const std::string &termName) const {
+    auto iter = hashmap.find(termName);
+    if (iter != hashmap.end()) {
+      std::vector<Term> subTerms;
+      for (const std::string &subTermName : iter->second.subs) {
+        auto subTermIter = hashmap.find(subTermName);
+        if (subTermIter != hashmap.end())
+          subTerms.push_back(subTermIter->second);
+      }
+      return subTerms;
+    }
+    return {};
+  }
+};
+
+void printHelp() {
+  std::cout << "\nДоступные действия:\n"
+            << "1. Добавить термин\n"
+            << "2. Удалить термин\n"
+            << "3. Изменить термин\n"
+            << "4. Вывести в алфавитном порядке\n"
+            << "5. Вывести в страничном порядке\n"
+            << "6. Вывести информацию о конкретном термине\n"
+            << "7. Найти термин по подтермину\n"
+            << "8. Вывести подтермины термина\n"
+            << "9. Вывести справку\n"
+            << "0. Выйти из программы\n";
+}
+
+void handleUserChoice(TermIndex &termIndex, int choice) {
+  switch (choice) {
+  case 1: {
+    Term newTerm = createNewTerm();
+    termIndex.push(newTerm);
+    std::cout << "Термин успешно добавлен.\n";
+    break;
+  }
+  case 2: {
+    std::string termName;
+    std::cout << "Введите название термина для удаления: ";
+    std::cin >> termName;
+    try {
+      termIndex.pop(termName);
+      std::cout << "Термин успешно удален, если он существовал.\n";
+    } catch (const std::exception &e) {
+      std::cerr << "Ошибка: " << e.what() << "\n";
+    }
+    break;
+  }
+  case 3: {
+    std::string termName;
+    std::cout << "Введите название термина для изменения: ";
+    std::cin >> termName;
+    termIndex.updateTerm(termName);
+    break;
+  }
+  case 4: {
+    std::cout << "\nСписок всех терминов в алфавитном порядке:\n";
+    termIndex.print(std::cout, TermIndex::SortMode::Alphabet);
+    break;
+  }
+  case 5: {
+    std::cout << "\nСписок всех терминов в постраничном порядке:\n";
+    termIndex.print(std::cout, TermIndex::SortMode::Page);
+    break;
+  }
+  case 6: {
+    std::string termName;
+    std::cout << "Введите название термина для вывода информации о нем: ";
+    std::cin >> termName;
+    termIndex.printSingleTerm(std::cout, termName);
+    break;
+  }
+  case 7: {
+    std::string subTermName;
+    std::cout << "Введите имя подтермина: ";
+    std::cin >> subTermName;
+    try {
+      Term foundTerm = termIndex.findTermBySubTerm(subTermName);
+      std::cout << "Найденный термин: " << foundTerm.name << "\n";
+    } catch (const std::exception &e) {
+      std::cerr << "Ошибка: " << e.what() << "\n";
+    }
+    break;
+  }
+  case 8: {
+    std::string termName;
+    std::cout << "Введите имя термина: ";
+    std::cin >> termName;
+    std::vector<Term> subTerms = termIndex.findSubTermsByTerm(termName);
+    std::cout << "Подтермины термина " << termName << ":\n";
+    for (const Term &subTerm : subTerms)
+      std::cout << subTerm.name << "\n";
+    break;
+  }
+  case 9: {
+    printHelp();
+    break;
+  }
+  case 0: {
+    std::cout << "Программа завершена.\n";
+    exit(0);
+  }
+  default: {
+    std::cout << "Ошибка: некорректный выбор. Повторите попытку.\n";
+  }
   }
 }
 
 int main() {
-  HashMap<string, term> map;
-  helpMe();
-  string input;
-  while (true) {
-    cout << ">> ";
-    getline(cin, input);
+  TermIndex termIndex;
+
+  termIndex.push(Term("Банан", "Описание родительского термина 1", 5, 2));
+  termIndex.push(Term("Собака", "Описание родительского термина 2", 2, 1));
+  termIndex.push(Term("Апельсин", "Описание подтермина 1", 1, 2, "Банан"));
+  termIndex.push(Term("Яблоко", "Описание подтермина 2", 5, 3, "Банан"));
+  termIndex.push(Term("Кот", "Описание подтермина 3", 2, 2, "Собака"));
+  termIndex.push(Term("Слон", "Описание подтермина 4", 5, 3, "Собака"));
+  termIndex.push(
+      Term("Крокодил", "Описание подподтермина 1", 2, 4, "Апельсин"));
+  termIndex.push(Term("Жираф", "Описание подподтермина 2", 1, 5, "Апельсин"));
+  termIndex.push(Term("Лиса", "Описание подподтермина 3", 2, 6, "Яблоко"));
+  termIndex.push(Term("Волк", "Описание подподтермина 4", 1, 7, "Яблоко"));
+  termIndex.push(Term("Муравей", "Описание подподтермина 5", 3, 8, "Кот"));
+  termIndex.push(Term("Пантера", "Описание подподтермина 6", 7, 9, "Кот"));
+  termIndex.push(Term("Кенгуру", "Описание подподтермина 7", 4, 10, "Слон"));
+  termIndex.push(Term("Лев", "Описание подподтермина 8", 8, 11, "Слон"));
+
+  printHelp();
+  while (true)
     try {
-      if (input == ".") {
-        cout << "Термин: ";
-        getline(cin, input);
-        auto term = map[input];
-        if (term == nullptr)
-          throw runtime_error("Термин не найден");
-        cout << "\nОписание:\n"
-             << term->description << "Родительский термин: " << term->parent
-             << "\nСтраница: " << term->page << "\nСтрока: " << term->line
-             << endl;
-      } else if (input == ":") {
-        for (auto i : map)
-          if (i != nullptr)
-            for (; i != nullptr; i = i->next)
-              cout << i->key << endl;
-      } else if (input == "+") {
-        term t;
-        cout << "Термин: ";
-        getline(cin, t.title);
-        cout << "Описание:\n";
-        while (getline(cin, input) && !input.empty())
-          t.description += input + "\n";
-        cout << "Родительский термин: ";
-        getline(cin, t.parent);
-        t.page = readstoi<uint>("Страница: ");
-        t.line = readstoi<uint>("Строка: ");
-        map.insert(t.title, t);
-      } else if (input == "-") {
-        cout << "Термин: ";
-        getline(cin, input);
-        map.erase(input);
-      } else if (input == "а") {
-        vector<HashMap<string, term>::Node> terms;
-        for (auto i : map)
-          if (i != nullptr)
-            for (; i != nullptr; i = i->next)
-              terms.push_back(*i);
-        sort(terms.begin(), terms.end(),
-             [](auto a, auto b) { return a.key < b.key; });
-        for (auto i : terms)
-          cout << i.key << endl;
-      } else if (input == "н") {
-        vector<HashMap<string, term>::Node> terms;
-        for (auto i : map)
-          if (i != nullptr)
-            for (; i != nullptr; i = i->next)
-              terms.push_back(*i);
-        sort(terms.begin(), terms.end(),
-             [](auto a, auto b) { return a.value.page < b.value.page; });
-        for (auto i : terms)
-          cout << i.key << endl;
-      } else if (input == "т") {
-        cout << "Подтермин: ";
-        getline(cin, input);
-        auto subterm = map[input];
-        if (subterm == nullptr)
-          throw runtime_error("Подтермин не найден");
-        cout << subterm->parent << endl;
-      } else if (input == "п") {
-        cout << "Термин: ";
-        getline(cin, input);
-        for (auto i : map)
-          if (i != nullptr)
-            for (; i != nullptr; i = i->next)
-              if (i->value.parent == input)
-                cout << i->key << endl;
-      } else if (input == "_") {
-        return 0;
-      } else if (input == "?")
-        helpMe();
-      else
-        throw runtime_error("Такой команды нет");
-    } catch (const runtime_error &err) {
-      cout << "Ошибка: " << err.what() << endl;
+      int choice;
+      std::cout << "\n>> ";
+      std::cin >> choice;
+      if (std::cin.fail()) {
+        std::cin.clear();
+        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+        throw std::invalid_argument(
+            "Введено некорректное значение. Повторите попытку.");
+      }
+      handleUserChoice(termIndex, choice);
+    } catch (const std::exception &e) {
+      std::cerr << "Ошибка: " << e.what() << "\n";
     }
-  }
 }
