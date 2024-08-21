@@ -1,2 +1,5 @@
 dist/
 zig-cache/
+.direnv/
+.vscode/
+.zig-cache/
